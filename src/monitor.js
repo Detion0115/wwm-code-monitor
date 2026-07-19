@@ -17,6 +17,8 @@ const BLOCKED_TOKENS = new Set([
   "FACEBOOK",
   "INSTAGRAM",
   "INVALID",
+  "AUTHORITY",
+  "MAGAZINE",
   "OFFICIAL",
   "REDEMPTION",
   "TWITTER",
@@ -150,7 +152,9 @@ export function parseBahamutThread(html) {
 
 export function parsePcGamerArticle(html) {
   const text = htmlToText(html);
-  const activeStart = text.search(/All active Where Winds Meet Codes/i);
+  const activeStart = text.search(
+    /Here are all the active codes currently available for Where Winds Meet/i,
+  );
   const expiredStart = text.search(/Expired Where Winds Meet Codes/i);
 
   if (activeStart < 0) {

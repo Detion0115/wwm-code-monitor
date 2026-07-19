@@ -55,7 +55,15 @@ test("parses active and expired codes from Arlen", () => {
 test("parses active and expired codes from PC Gamer", () => {
   const html = `
     <article>
+      <header>
+        <span>PC Gamer THE GLOBAL AUTHORITY ON PC GAMES</span>
+        <a>Find out about our magazine</a>
+      </header>
+      <table>
+        <tr><th>Code</th><th>Reward</th></tr>
+      </table>
       <h2>All active Where Winds Meet Codes</h2>
+      <p>Here are all the active codes currently available for Where Winds Meet:</p>
       <table>
         <tr><th>Code</th><th>Reward</th></tr>
         <tr><td>MEETINHM</td><td>150x Echo Jade</td></tr>
