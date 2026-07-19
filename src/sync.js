@@ -1,9 +1,7 @@
 import {
   ARLEN_URL,
   fetchArlenEntries,
-  fetchPcGamerEntries,
   normalizeCode,
-  PC_GAMER_URL,
   reconcileState,
 } from "./monitor.js";
 
@@ -13,7 +11,7 @@ const STATE_END = "<!-- wwm-code-state:end -->";
 const MAX_STATE_BYTES = 60_000;
 const MAX_EMBED_DESCRIPTION = 3900;
 const ANNOUNCEMENT_SOURCE_URL = ARLEN_URL;
-const STATE_SOURCE_URL = `${ARLEN_URL} | ${PC_GAMER_URL}`;
+const STATE_SOURCE_URL = ARLEN_URL;
 
 function requireEnvironment(name) {
   const value = process.env[name]?.trim();
@@ -248,7 +246,6 @@ function mergeSourceEntries(target, entries) {
 async function fetchConfiguredSourceEntries() {
   const sources = [
     { name: "Arlen", fetchEntries: fetchArlenEntries },
-    { name: "PC Gamer", fetchEntries: fetchPcGamerEntries },
   ];
   const entries = new Map();
   const failures = [];

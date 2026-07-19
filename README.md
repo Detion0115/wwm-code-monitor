@@ -2,14 +2,13 @@
 
 這是一個使用 GitHub Actions、GitHub Issue、Discord Webhook 與 Cloudflare Worker 的兌換碼監控工具。
 
-目前版本不再自動抓巴哈姆特，改用下列兩個來源：
+目前版本不再自動抓巴哈姆特，也暫時不抓 PC Gamer，改用下列來源：
 
 - https://www.arlenfuture.com/games/where-winds-meet-codes/
-- https://www.pcgamer.com/games/action/where-winds-meet-codes/
 
 ## 功能
 
-- 每 6 小時自動掃描 Arlen 與 PC Gamer 的兌換碼頁面。
+- 每 6 小時自動掃描 Arlen 的兌換碼頁面。
 - 自動比對 GitHub Issue 裡已記錄的兌換碼。
 - 只有新出現的有效碼會發布到 Discord。
 - 已存在的兌換碼不會重複公告。
@@ -20,7 +19,7 @@
 ## 運作方式
 
 ```text
-Arlen / PC Gamer
+Arlen
 GitHub Actions
 GitHub Issue 狀態資料
 Discord Webhook 公告
