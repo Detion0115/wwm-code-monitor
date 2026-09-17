@@ -1,8 +1,8 @@
 import {
-  ARLEN_URL,
-  fetchArlenEntries,
+  YAR_URL,
+  fetchYarEntries,
   normalizeCode,
-  reconcileState,
+  reconcileSourceState,
 } from "./monitor.js";
 
 const STATE_TITLE = "[WWM Monitor] State - do not edit";
@@ -10,8 +10,8 @@ const STATE_START = "<!-- wwm-code-state:start -->";
 const STATE_END = "<!-- wwm-code-state:end -->";
 const MAX_STATE_BYTES = 60_000;
 const MAX_EMBED_DESCRIPTION = 3900;
-const ANNOUNCEMENT_SOURCE_URL = ARLEN_URL;
-const STATE_SOURCE_URL = ARLEN_URL;
+const ANNOUNCEMENT_SOURCE_URL = YAR_URL;
+const STATE_SOURCE_URL = YAR_URL;
 
 function requireEnvironment(name) {
   const value = process.env[name]?.trim();
@@ -174,7 +174,8 @@ function reconcileManualState(previousState, manualEntries, now) {
     newActive,
     state: {
       initialized: true,
-      sourceUrl: STATE_SOURCE_URL,
+      sourceUrl: previousState?.sourceUrl ?? STATE_SOURCE_URL,
+      scannedSourceUrl: previousState?.scannedSourceUrl ?? null,
       updatedAt: now,
       codes: [...known.values()].sort((a, b) =>
         a.code.localeCompare(b.code, "en", { sensitivity: "base" }),
@@ -245,7 +246,7 @@ function mergeSourceEntries(target, entries) {
 
 async function fetchConfiguredSourceEntries() {
   const sources = [
-    { name: "Arlen", fetchEntries: fetchArlenEntries },
+    { name: "Yar", fetchEntries: fetchYarEntries },
   ];
   const entries = new Map();
   const failures = [];
@@ -325,8 +326,8 @@ async function main() {
   }
 
   const stored = await loadStateIssue(repository, githubToken);
-  const result = reconcileState(
-    stored.state ?? { initialized: false, codes: [] },
+  const result = reconcileSourceState(
+    stored.state,
     entries,
     now,
     STATE_SOURCE_URL,
@@ -334,7 +335,7 @@ async function main() {
 
   await saveState(repository, githubToken, stored.issue, result.state);
 
-  if (result.firstRun) {
+  if (result.firstRun && !stored.state?.initialized) {
     await postDiscord(webhookUrl, {
       embeds: [
         {
@@ -348,6 +349,10 @@ async function main() {
     });
   } else if (result.newActive.length > 0) {
     await postCodeEmbeds(webhookUrl, "發現新兌換碼", result.newActive);
+  }
+
+  if (result.firstRun && stored.state?.initialized) {
+    console.log("New source baselined without announcing existing codes.");
   }
 
   const active = entries.filter((entry) => entry.status === "active").length;

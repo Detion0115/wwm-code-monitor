@@ -5,6 +5,9 @@ const ARLEN_HOST = "www.arlenfuture.com";
 const PC_GAMER_URL =
   "https://www.pcgamer.com/games/action/where-winds-meet-codes/";
 const PC_GAMER_HOST = "www.pcgamer.com";
+const YAR_URL = "https://codes.yar.gg/";
+const YAR_API_URL = "https://codes-backend.wwmcodes.workers.dev/v1/codes";
+const YAR_API_HOST = "codes-backend.wwmcodes.workers.dev";
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 
@@ -214,6 +217,36 @@ export function parseArlenPage(html) {
   return [...entries.values()];
 }
 
+export function parseYarCodesPayload(payload) {
+  if (
+    !payload ||
+    !Array.isArray(payload.active) ||
+    !Array.isArray(payload.expired) ||
+    payload.active.length === 0
+  ) {
+    throw new Error("Yar code lists are missing or empty");
+  }
+
+  const entries = new Map();
+  for (const [status, items] of [
+    ["active", payload.active],
+    ["expired", payload.expired],
+  ]) {
+    for (const item of items) {
+      const code = item?.code;
+      if (
+        typeof code !== "string" ||
+        !/^[A-Za-z0-9][A-Za-z0-9_-]{5,31}$/.test(code)
+      ) {
+        throw new Error("Yar returned an invalid code entry");
+      }
+      setCodeEntry(entries, code, status);
+    }
+  }
+
+  return [...entries.values()];
+}
+
 function validateUrl(value, expectedHost, label) {
   const url = new URL(value);
   if (url.protocol !== "https:" || url.hostname !== expectedHost) {
@@ -283,6 +316,16 @@ export function fetchArlenEntries() {
   });
 }
 
+export function fetchYarEntries() {
+  return fetchEntriesFromSource({
+    name: "Yar",
+    url: YAR_API_URL,
+    host: YAR_API_HOST,
+    language: "en-US,en;q=0.9",
+    parse: (body) => parseYarCodesPayload(JSON.parse(body)),
+  });
+}
+
 export function fetchPcGamerEntries() {
   return fetchEntriesFromSource({
     name: "PC Gamer",
@@ -343,4 +386,24 @@ export function reconcileState(
   };
 }
 
-export { ARLEN_URL, PC_GAMER_URL, SOURCE_URL };
+export function reconcileSourceState(previousState, currentEntries, now, sourceUrl) {
+  const previous = previousState ?? { initialized: false, codes: [] };
+  const result = reconcileState(
+    {
+      ...previous,
+      initialized:
+        previous.initialized === true &&
+        previous.scannedSourceUrl === sourceUrl,
+    },
+    currentEntries,
+    now,
+    sourceUrl,
+  );
+
+  return {
+    ...result,
+    state: { ...result.state, scannedSourceUrl: sourceUrl },
+  };
+}
+
+export { ARLEN_URL, PC_GAMER_URL, SOURCE_URL, YAR_URL };
