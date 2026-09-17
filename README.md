@@ -1,122 +1,90 @@
-# 燕雲十六聲兌換碼監控器
+# Where Winds Meet Code Monitor
 
-這是一個使用 GitHub Actions、GitHub Issue、Discord Webhook 與 Cloudflare Worker 的兌換碼監控工具。
+This project monitors Where Winds Meet redemption codes with GitHub Actions, a GitHub Issue, a Discord Webhook, and a Cloudflare Worker.
 
-目前版本不再自動抓巴哈姆特，也暫時不抓 PC Gamer，改用下列來源：
+The automatic scanner uses [codes.yar.gg](https://codes.yar.gg/). It no longer scans Bahamut, PC Gamer, or Arlen.
 
-- https://www.arlenfuture.com/games/where-winds-meet-codes/
+## Features
 
-## 功能
+- Reads the site's public active and confirmed-expired code lists every six hours.
+- Compares codes with the state stored in a GitHub Issue.
+- Posts only newly discovered active codes to Discord. Known codes are not posted again.
+- Removes codes marked as confirmed expired by the site from the Issue state. A player's personal "used" marker does not mean a code is expired.
+- Establishes a baseline on the first scan after switching sources, so the site's existing codes are not all announced at once.
+- Accepts player reports through the Discord `/report` command. Reports use the same stored-code check before any announcement.
 
-- 每 6 小時自動掃描 Arlen 的兌換碼頁面。
-- 自動比對 GitHub Issue 裡已記錄的兌換碼。
-- 只有新出現的有效碼會發布到 Discord。
-- 已存在的兌換碼不會重複公告。
-- 來源網站標示為過期或失效的兌換碼，會從 Issue 狀態中刪除。
-- 支援 Discord `/report`，玩家可以直接回報疑似新兌換碼。
-- `/report` 回報的兌換碼一樣會先比對，沒記錄過才會公告。
+The source is community-maintained. A code listed as active has not necessarily been verified with your game account. If the source cannot be read or its format changes, that scan fails without clearing the stored state.
 
-## 運作方式
+## How It Works
+
+Automatic scan:
 
 ```text
-Arlen
+codes.yar.gg active and confirmed-expired lists
 GitHub Actions
-GitHub Issue 狀態資料
-Discord Webhook 公告
+GitHub Issue state
+Discord Webhook announcement
 ```
 
-玩家回報流程：
+Player report:
 
 ```text
 Discord /report
 Cloudflare Worker
-GitHub Actions manual_codes
-GitHub Issue 比對
-Discord Webhook 公告
+GitHub Actions manual_codes input
+GitHub Issue comparison
+Discord Webhook announcement
 ```
 
-## GitHub Issue 狀態
+## GitHub Issue State
 
-程式會自動建立或更新一個 Issue：
+The workflow creates or updates an Issue titled:
 
 ```text
 [WWM Monitor] State - do not edit
 ```
 
-這個 Issue 用來記錄目前已知的有效兌換碼。請不要手動亂改裡面的 JSON，除非你知道自己在改什麼。
+The Issue records known active codes. Do not edit its JSON unless you understand the state format.
 
-## 必要設定
+## Setup
 
-在 GitHub repository 的 `Settings` -> `Environments` 建立：
+In the repository's `Settings` -> `Environments`, create an environment named:
 
 ```text
 discord-production
 ```
 
-並新增 Environment Secret：
+Add an environment secret named `DISCORD_WEBHOOK_URL` and set its value to your Discord channel's Webhook URL. Keep GitHub Actions and the `Scan WWM redemption codes` workflow enabled for scheduled scans and player reports.
 
-```text
-DISCORD_WEBHOOK_URL
-```
+## Add Codes Manually
 
-Value 填 Discord 頻道的 Webhook URL。
-
-## 手動新增兌換碼
-
-到 GitHub：
+In GitHub, open:
 
 ```text
 Actions -> Scan WWM redemption codes -> Run workflow
 ```
 
-在 `manual_codes` 欄位貼上兌換碼，一行一組或多組都可以。
-
-系統會自動比對：
-
-- 新碼會寫入 Issue 並公告到 Discord。
-- 重複碼只會更新紀錄，不會重複公告。
+Paste one or more codes into `manual_codes`, with one code per line if preferred. New codes are saved to the Issue and announced in Discord; known codes are not announced again.
 
 ## Discord `/report`
 
-`discord-report-worker/` 是 Cloudflare Worker 版本的 Discord `/report` 功能。
+The Cloudflare Worker in `discord-report-worker/` handles the Discord `/report` command. Players enter suspected new codes in its `codes` field. The Worker starts the GitHub Actions workflow with the `manual_codes` input, and the workflow checks the Issue before posting to Discord.
 
-玩家可以在 Discord 使用：
+See `discord-report-worker/README.md` for Worker setup.
 
-```text
-/report
-```
+## Schedule
 
-把疑似新兌換碼貼進 `codes` 欄位。Worker 會觸發 GitHub Actions 的 `manual_codes` 流程，再由 GitHub Actions 負責比對與公告。
-
-設定方式請看：
-
-```text
-discord-report-worker/README.md
-```
-
-## 排程
-
-目前 GitHub Actions 每 6 小時執行一次：
+The workflow runs every six hours:
 
 ```yaml
 cron: "17 0,6,12,18 * * *"
 ```
 
-GitHub Actions 的排程使用 UTC 時間，所以實際觸發時間會和台灣時間相差 8 小時。
+GitHub Actions interprets this schedule in UTC, which is eight hours behind Taiwan time.
 
-## 安全提醒
+## Security
 
-請不要把下列內容上傳到 GitHub：
-
-- Discord Webhook URL
-- Discord Bot Token
-- GitHub Token
-- `.env`
-- 任何 API Key 或私密金鑰
-
-這些資料應該放在 GitHub Secrets 或 Cloudflare Worker Secrets。
-
-如果 Token 或 Webhook URL 不小心公開，請立刻重設。
+Never commit a Discord Webhook URL, Discord Bot Token, GitHub Token, `.env` file, API key, or other secret. Store secrets in GitHub Secrets or Cloudflare Worker Secrets. Rotate any token or Webhook URL that has been exposed.
 
 ## License
 
