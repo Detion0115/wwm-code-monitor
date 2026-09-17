@@ -4,7 +4,10 @@ import {
   parseArlenPage,
   parseBahamutThread,
   parsePcGamerArticle,
+  parseYarCodesPayload,
+  reconcileSourceState,
   reconcileState,
+  YAR_URL,
 } from "../src/monitor.js";
 
 test("parses active and struck-through codes from the first post", () => {
@@ -81,6 +84,102 @@ test("parses active and expired codes from PC Gamer", () => {
     { code: "HD4CRCHPTN", status: "active" },
     { code: "WWMDEVTALK", status: "expired" },
   ]);
+});
+
+test("parses Yar active and expired lists without treating used codes as expired", () => {
+  assert.deepEqual(
+    parseYarCodesPayload({
+      active: [
+        { code: "TF37WR876K", addedAt: "2026-09-17T00:00:00Z" },
+        { code: "yryqhtneda" },
+        { code: "TF37WR876K" },
+      ],
+      expired: [{ code: "AMTRC8F3AJ" }],
+    }),
+    [
+      { code: "TF37WR876K", status: "active" },
+      { code: "YRYQHTNEDA", status: "active" },
+      { code: "AMTRC8F3AJ", status: "expired" },
+    ],
+  );
+});
+
+test("rejects missing or malformed Yar lists before updating state", () => {
+  assert.throws(() => parseYarCodesPayload({ active: [], expired: [] }));
+  assert.throws(() => parseYarCodesPayload({ active: [{ code: "GOOD123" }] }));
+  assert.throws(() =>
+    parseYarCodesPayload({ active: [{ code: "BAD CODE" }], expired: [] }),
+  );
+});
+
+test("first Yar scan baselines old codes; later scans announce only new codes", () => {
+  const first = reconcileSourceState(
+    {
+      initialized: true,
+      sourceUrl: "https://www.arlenfuture.com/games/where-winds-meet-codes/",
+      codes: [
+        {
+          code: "KNOWN2026",
+          status: "active",
+          firstSeenAt: "2026-09-16T00:00:00.000Z",
+          lastSeenAt: "2026-09-16T00:00:00.000Z",
+        },
+        {
+          code: "OLD2026",
+          status: "active",
+          firstSeenAt: "2026-09-16T00:00:00.000Z",
+          lastSeenAt: "2026-09-16T00:00:00.000Z",
+        },
+      ],
+    },
+    [
+      { code: "KNOWN2026", status: "active" },
+      { code: "BASELINE2026", status: "active" },
+      { code: "OLD2026", status: "expired" },
+    ],
+    "2026-09-17T00:00:00.000Z",
+    YAR_URL,
+  );
+
+  assert.equal(first.firstRun, true);
+  assert.deepEqual(first.newActive, []);
+  assert.equal(first.state.scannedSourceUrl, YAR_URL);
+  assert.deepEqual(
+    first.state.codes.map((entry) => entry.code),
+    ["BASELINE2026", "KNOWN2026"],
+  );
+
+  const second = reconcileSourceState(
+    first.state,
+    [
+      { code: "KNOWN2026", status: "active" },
+      { code: "BASELINE2026", status: "active" },
+      { code: "NEWCODE2026", status: "active" },
+    ],
+    "2026-09-17T06:00:00.000Z",
+    YAR_URL,
+  );
+  assert.equal(second.firstRun, false);
+  assert.deepEqual(second.newActive, [
+    { code: "NEWCODE2026", status: "active" },
+  ]);
+});
+
+test("manual reports before the first Yar scan do not bypass the baseline", () => {
+  const result = reconcileSourceState(
+    {
+      initialized: true,
+      sourceUrl: YAR_URL,
+      scannedSourceUrl: null,
+      codes: [],
+    },
+    [{ code: "EXISTING2026", status: "active" }],
+    "2026-09-17T00:00:00.000Z",
+    YAR_URL,
+  );
+
+  assert.equal(result.firstRun, true);
+  assert.deepEqual(result.newActive, []);
 });
 
 test("first run creates a baseline without announcing old active codes", () => {
